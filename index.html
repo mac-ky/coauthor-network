@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>共著者ネットワーク検索</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+  <header class="hero">
+    <div class="eyebrow">CO-AUTHOR NETWORK EXPLORER</div>
+    <h1>共著者ネットワーク検索</h1>
+    <p class="hero-sub">
+      著者名を入力すると学術データベースから論文情報を取得し、共著関係をネットワーク図として可視化します。
+      同姓同名の著者が複数見つかった場合は候補から選択できます。
+      このページはサーバーを持たない静的サイトで、入力内容はすべてお使いのブラウザから各データベースのAPIへ直接送信されます。
+    </p>
+  </header>
+
+  <section class="card search-card">
+    <div class="source-toggle" id="sourceToggle" role="radiogroup" aria-label="検索データソース">
+      <button type="button" class="source-btn is-active" data-source="cinii" role="radio" aria-checked="true">
+        <span class="source-name">CiNii Research</span>
+        <span class="source-desc">日本語の学会発表・紀要中心</span>
+      </button>
+      <button type="button" class="source-btn" data-source="s2" role="radio" aria-checked="false">
+        <span class="source-name">Semantic Scholar</span>
+        <span class="source-desc">英語の国際会議・ジャーナル中心</span>
+      </button>
+    </div>
+    <form id="searchForm" class="search-row" autocomplete="off">
+      <input id="searchInput" type="text" placeholder="著者名を入力（例：田部井優也）" required>
+      <button type="submit" id="searchBtn">検索</button>
+    </form>
+    <p class="search-hint" id="searchHint"></p>
+  </section>
+
+  <section class="card status-card" id="statusCard" hidden>
+    <div class="status-row">
+      <div class="spinner" id="spinner" hidden></div>
+      <div id="statusText"></div>
+    </div>
+  </section>
+
+  <section class="card candidates-card" id="candidatesCard" hidden>
+    <div class="candidates-head">
+      <h2>候補から著者を選択してください</h2>
+      <p class="note">同姓同名の可能性があります。所属を参考に、目的の著者を選んでください。</p>
+    </div>
+    <div class="candidates-list" id="candidatesList"></div>
+  </section>
+
+  <section id="resultSection" hidden>
+    <div class="result-toolbar">
+      <button class="ghost-btn" id="backBtn">&larr; 別の著者を検索</button>
+      <div id="centerLabel" class="center-label"></div>
+    </div>
+
+    <section class="stats" id="statsRow"></section>
+
+    <section class="card graph-card">
+      <div class="graph-toolbar">
+        <div class="legend" id="legend"></div>
+        <div class="toolbar-right">
+          <span class="hint">ドラッグで移動／クリックで共著関係を強調／ホイールで拡大縮小</span>
+          <button class="reset-btn" id="resetView">表示をリセット</button>
+        </div>
+      </div>
+      <div class="graph-wrap" id="graphWrap">
+        <svg id="graph" viewBox="0 0 1000 720" role="img" aria-label="選択した著者を中心とした共著者ネットワーク図">
+          <g id="edgesLayer"></g>
+          <g id="nodesLayer"></g>
+        </svg>
+        <div class="tooltip" id="tooltip" hidden></div>
+      </div>
+      <p class="meta-note" id="metaNote"></p>
+    </section>
+
+    <section class="card table-card">
+      <h2>共著者一覧（共著論文数順）</h2>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>#</th><th>氏名</th><th>グループ</th><th class="num">共著論文数</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card notes">
+      <h2>この図について</h2>
+      <ul id="sourceNotes"></ul>
+      <ul>
+        <li>グループ分け（色分け）は、共著関係のネットワーク構造から自動検出したコミュニティです。所属研究室等の人手による分類ではありません。</li>
+        <li>共著者数が多い場合、図の見やすさを保つため中心著者との共著論文数が多い上位のみを表示しています。</li>
+        <li>本ページはサーバーを持たない静的サイトです。すべての通信はお使いのブラウザから各データベースのAPIへ直接送信されます。</li>
+      </ul>
+    </section>
+  </section>
+
+  <footer>
+    データ出典：<a href="https://cir.nii.ac.jp/" target="_blank" rel="noopener">CiNii Research</a>
+    ・ <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
+    ・ <a href="https://github.com/" target="_blank" rel="noopener" id="repoLink">ソースコード</a>
+  </footer>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>
