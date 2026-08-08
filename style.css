@@ -110,6 +110,22 @@ h1 { font-size: clamp(22px, 4vw, 30px); line-height: 1.3; margin: 4px 0 0; text-
 #searchBtn:disabled { opacity: 0.5; cursor: default; }
 .search-hint { font-size: 12px; color: var(--muted); margin: 10px 2px 0; line-height: 1.6; }
 
+.explainer-card { padding: 18px 20px; }
+.explainer-card h2 { font-size: 15px; margin: 0 0 8px; }
+.explainer-text { font-size: 12.5px; line-height: 1.8; color: var(--ink-2); margin: 0 0 14px; max-width: 72ch; }
+.explainer-text b { color: var(--ink); }
+.explainer-figure { margin: 0; }
+.explainer-svg { width: 100%; max-width: 520px; height: auto; display: block; margin: 0 auto; }
+.ex-node { fill: var(--c-1); }
+.ex-node-center { fill: var(--ink); }
+.ex-node-excluded { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.ex-edge { stroke: var(--ink-2); stroke-width: 1.6; }
+.ex-edge-excluded { stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 4 4; }
+.ex-label { font-size: 12px; fill: var(--ink-2); }
+.ex-label-strong { fill: var(--ink); font-weight: 600; }
+.ex-label-muted { fill: var(--muted); }
+.explainer-caption { font-size: 11.5px; color: var(--muted); text-align: center; margin: 8px auto 0; max-width: 60ch; line-height: 1.6; }
+
 .status-card { padding: 16px 20px; }
 .status-row { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--ink-2); }
 .status-row.is-error { color: var(--danger); }
@@ -206,5 +222,6 @@ td.cluster-tag .swatch { width: 8px; height: 8px; }
 .notes li { margin-bottom: 4px; }
 
 footer { font-size: 11.5px; color: var(--muted); text-align: center; padding-top: 8px; }
+footer p { margin: 4px 0; }
 footer a { color: var(--muted); }
 a { color: inherit; }

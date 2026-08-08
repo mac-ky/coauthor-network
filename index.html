@@ -37,6 +37,37 @@
     <p class="search-hint" id="searchHint"></p>
   </section>
 
+  <section class="card explainer-card">
+    <h2>ネットワーク図の作り方</h2>
+    <p class="explainer-text">
+      検索した中心の著者について、①その人の論文をすべて集め、②論文に載っている共著者を1人ずつノードとして追加し、中心の著者と線で結びます。
+      ③同じ論文の中で共著者どうしが組んでいれば、その2人の間にも線を引きます。<b>ここで打ち切り</b> —
+      共著者のそのまた共著者（中心の著者とは一度も共著していない人）へは広げません。そうしないと際限なく人数が増えてしまうためです。
+    </p>
+    <figure class="explainer-figure">
+      <svg class="explainer-svg" viewBox="0 0 580 215" role="img"
+           aria-label="中心の著者と直接共著した人だけをネットワークに加え、共著者のそのまた共著者へは広げないことを示す模式図">
+        <line x1="70" y1="100" x2="270" y2="35" class="ex-edge"/>
+        <line x1="70" y1="100" x2="270" y2="100" class="ex-edge"/>
+        <line x1="70" y1="100" x2="270" y2="165" class="ex-edge"/>
+        <line x1="270" y1="35" x2="270" y2="100" class="ex-edge"/>
+        <line x1="270" y1="35" x2="460" y2="35" class="ex-edge-excluded"/>
+
+        <circle cx="70" cy="100" r="22" class="ex-node-center"/>
+        <circle cx="270" cy="35" r="15" class="ex-node"/>
+        <circle cx="270" cy="100" r="15" class="ex-node"/>
+        <circle cx="270" cy="165" r="15" class="ex-node"/>
+        <circle cx="460" cy="35" r="13" class="ex-node-excluded"/>
+
+        <text x="70" y="138" text-anchor="middle" class="ex-label ex-label-strong">中心の著者</text>
+        <text x="270" y="198" text-anchor="middle" class="ex-label">共著者（直接つながる人）</text>
+        <text x="460" y="16" text-anchor="middle" class="ex-label ex-label-muted">そのまた共著者</text>
+        <text x="460" y="60" text-anchor="middle" class="ex-label ex-label-muted">（追加しない）</text>
+      </svg>
+      <figcaption class="explainer-caption">中心の著者と直接共著した人だけを1段階分だけ加え、そこで打ち切ります。共著者どうしが同じ論文で組んでいれば、その間にも線を引きます。</figcaption>
+    </figure>
+  </section>
+
   <section class="card status-card" id="statusCard" hidden>
     <div class="status-row">
       <div class="spinner" id="spinner" hidden></div>
@@ -102,9 +133,12 @@
   </section>
 
   <footer>
-    データ出典：<a href="https://cir.nii.ac.jp/" target="_blank" rel="noopener">CiNii Research</a>
-    ・ <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
-    ・ <a href="https://github.com/" target="_blank" rel="noopener" id="repoLink">ソースコード</a>
+    <p>
+      データ出典：<a href="https://cir.nii.ac.jp/" target="_blank" rel="noopener">CiNii Research</a>
+      ・ <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
+      ・ <a href="https://github.com/mac-ky/coauthor-network" target="_blank" rel="noopener" id="repoLink">ソースコード</a>
+    </p>
+    <p>本ページは Claude Code とのバイブコーディングで作成しました。</p>
   </footer>
 
 </div>
