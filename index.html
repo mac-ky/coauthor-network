@@ -91,6 +91,14 @@
 
     <section class="stats" id="statsRow"></section>
 
+    <section class="card papers-card">
+      <button type="button" class="papers-toggle" id="papersToggle" aria-expanded="false">
+        <span id="papersToggleLabel">取得した論文一覧を見る</span>
+        <span class="chevron" id="papersChevron">▾</span>
+      </button>
+      <ul class="paper-list" id="allPapersList" hidden></ul>
+    </section>
+
     <section class="card graph-card">
       <div class="graph-toolbar">
         <div class="legend" id="legend"></div>
@@ -107,6 +115,21 @@
         <div class="tooltip" id="tooltip" hidden></div>
       </div>
       <p class="meta-note" id="metaNote"></p>
+    </section>
+
+    <section class="card node-panel" id="nodePanel" hidden>
+      <div class="node-panel-head">
+        <div>
+          <span class="node-panel-name" id="nodePanelName"></span>
+          <span class="node-panel-group" id="nodePanelGroup"></span>
+        </div>
+        <div class="node-panel-actions">
+          <button type="button" class="profile-btn" id="nodePanelProfileBtn">プロフィールを探す ↗</button>
+          <button type="button" class="ghost-btn" id="nodePanelClose">閉じる</button>
+        </div>
+      </div>
+      <p class="node-panel-hint" id="nodePanelHint"></p>
+      <ul class="paper-list" id="nodePanelPapers"></ul>
     </section>
 
     <section class="card table-card">

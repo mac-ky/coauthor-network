@@ -39,6 +39,7 @@
     cinii: {
       label: "CiNii Research",
       hint: "日本語の学会発表・紀要論文にも対応しています。海外の国際会議論文などは収録が薄い場合があります。共著者ごとの一意なIDはないため、氏名の表記に基づいて集計します。",
+      registrationNote: "CiNii Research の検索窓は「研究者」として登録されている人だけがヒットします（KAKEN研究者番号などが必要で、論文に名前が載っているだけでは登録されません）。そのため、共著者としてネットワーク図には表示されても、その人自身の名前では検索してもヒットしないことがあります。",
       placeholder: "著者名を入力（例：田部井優也）",
       async search(name) {
         var url = "https://cir.nii.ac.jp/opensearch/v2/researchers?name=" + encodeURIComponent(name) + "&format=json&count=20";
@@ -71,11 +72,29 @@
           items.forEach(function (it) {
             var creators = it["dc:creator"];
             var names = Array.isArray(creators) ? creators : (creators ? [creators] : []);
-            papers.push({ authors: names.map(function (n) { return { id: n, name: n }; }) });
+            var dateStr = it["prism:publicationDate"] || "";
+            papers.push({
+              authors: names.map(function (n) { return { id: n, name: n }; }),
+              title: it.title || "(タイトル不明)",
+              year: dateStr.slice(0, 4) || null,
+              url: it.link && it.link["@id"] ? it.link["@id"] : null
+            });
           });
           start += count;
         }
         return { papers: papers, cappedPapers: papers.length >= MAX_PAPERS || papers.length < total };
+      },
+      async resolveProfileUrl(node, candidate) {
+        if (node.id === candidate.name) {
+          return { url: "https://cir.nii.ac.jp/crid/" + candidate.rawId, ambiguous: false };
+        }
+        var url = "https://cir.nii.ac.jp/opensearch/v2/researchers?name=" + encodeURIComponent(node.name) + "&format=json&count=5";
+        var data = await fetchJsonRetry(url);
+        var items = data.items || [];
+        if (items.length === 0) return null;
+        var idUrl = items[0]["@id"] || "";
+        var crid = idUrl.split("/").filter(Boolean).pop();
+        return { url: "https://cir.nii.ac.jp/crid/" + crid, ambiguous: items.length > 1, matchCount: items.length };
       }
     },
 
@@ -111,12 +130,20 @@
           var items = data.data || [];
           items.forEach(function (p) {
             var authors = (p.authors || []).filter(function (a) { return a.authorId; });
-            papers.push({ authors: authors.map(function (a) { return { id: a.authorId, name: a.name }; }) });
+            papers.push({
+              authors: authors.map(function (a) { return { id: a.authorId, name: a.name }; }),
+              title: p.title || "(タイトル不明)",
+              year: p.year || null,
+              url: p.paperId ? "https://www.semanticscholar.org/paper/" + p.paperId : null
+            });
           });
           if (items.length < limit || !data.next) break;
           offset += limit;
         }
         return { papers: papers.slice(0, MAX_PAPERS), cappedPapers: papers.length >= MAX_PAPERS };
+      },
+      async resolveProfileUrl(node, candidate) {
+        return { url: "https://www.semanticscholar.org/author/" + encodeURIComponent(node.name || "author") + "/" + node.id, ambiguous: false };
       }
     }
   };
@@ -176,11 +203,13 @@
     var paperCount = new Map();
     var edgeWeight = new Map();
     var validPaperCount = 0;
+    var validPapers = [];
 
     papers.forEach(function (paper) {
       var ids = (paper.authors || []).map(function (a) { return a.id; }).filter(Boolean);
       if (ids.indexOf(centerId) === -1) return;
       validPaperCount++;
+      validPapers.push({ authors: paper.authors, title: paper.title, year: paper.year, url: paper.url });
       paper.authors.forEach(function (a) {
         if (!a.id) return;
         if (!nameVotes.has(a.id)) nameVotes.set(a.id, new Map());
@@ -237,9 +266,12 @@
       });
     });
 
+    validPapers.sort(function (a, b) { return (b.year || "0") < (a.year || "0") ? -1 : (b.year || "0") > (a.year || "0") ? 1 : 0; });
+
     return {
       nodes: nodes,
       edges: edges,
+      papers: validPapers,
       meta: {
         totalPapers: validPaperCount,
         totalCoauthors: others.length,
@@ -272,6 +304,40 @@
   var backBtn = document.getElementById("backBtn");
   var centerLabel = document.getElementById("centerLabel");
   var sourceNotes = document.getElementById("sourceNotes");
+
+  var papersToggle = document.getElementById("papersToggle");
+  var papersChevron = document.getElementById("papersChevron");
+  var papersToggleLabel = document.getElementById("papersToggleLabel");
+  var allPapersList = document.getElementById("allPapersList");
+
+  var nodePanel = document.getElementById("nodePanel");
+  var nodePanelName = document.getElementById("nodePanelName");
+  var nodePanelGroup = document.getElementById("nodePanelGroup");
+  var nodePanelProfileBtn = document.getElementById("nodePanelProfileBtn");
+  var nodePanelClose = document.getElementById("nodePanelClose");
+  var nodePanelHint = document.getElementById("nodePanelHint");
+  var nodePanelPapers = document.getElementById("nodePanelPapers");
+
+  function renderPaperList(container, papers) {
+    container.innerHTML = "";
+    if (papers.length === 0) {
+      var li0 = document.createElement("li");
+      li0.className = "paper-empty";
+      li0.textContent = "該当する論文がありません。";
+      container.appendChild(li0);
+      return;
+    }
+    papers.forEach(function (p) {
+      var li = document.createElement("li");
+      var yearText = p.year ? "（" + escapeHtml(String(p.year)) + "）" : "";
+      if (p.url) {
+        li.innerHTML = "<a href='" + p.url + "' target='_blank' rel='noopener'>" + escapeHtml(p.title) + "</a><span class='paper-meta'>" + yearText + "</span>";
+      } else {
+        li.innerHTML = "<span class='paper-nolink'>" + escapeHtml(p.title) + "</span><span class='paper-meta'>" + yearText + "</span>";
+      }
+      container.appendChild(li);
+    });
+  }
 
   function applySourceUI() {
     var adapter = ADAPTERS[currentSource];
@@ -307,6 +373,16 @@
     searchInput.focus();
   }
   backBtn.addEventListener("click", resetToSearch);
+
+  papersToggle.addEventListener("click", function () {
+    var expanded = papersToggle.getAttribute("aria-expanded") === "true";
+    papersToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    allPapersList.hidden = expanded;
+  });
+  var activeCloseNodePanel = null;
+  nodePanelClose.addEventListener("click", function () {
+    if (activeCloseNodePanel) activeCloseNodePanel();
+  });
 
   searchForm.addEventListener("submit", function (evt) {
     evt.preventDefault();
@@ -385,6 +461,13 @@
       var graph = buildGraph(centerId, candidate.name, result.papers);
       graph.meta.cappedPapers = result.cappedPapers;
       hideStatus();
+
+      papersToggle.setAttribute("aria-expanded", "false");
+      allPapersList.hidden = true;
+      papersToggleLabel.textContent = "取得した論文一覧を見る（" + graph.papers.length + "件）";
+      renderPaperList(allPapersList, graph.papers);
+      nodePanel.hidden = true;
+
       renderNetwork(candidate, graph);
     } catch (err) {
       setStatus(errMessage(err), { error: true });
@@ -402,7 +485,11 @@
 
     centerLabel.innerHTML = "中心著者：<b>" + escapeHtml(candidate.name) + "</b>（" + ADAPTERS[candidate.source].label + "）";
 
-    sourceNotes.innerHTML = "<li>データ出典は " + escapeHtml(ADAPTERS[candidate.source].label) + " です。" + escapeHtml(ADAPTERS[candidate.source].hint) + "</li>";
+    var sourceNotesHtml = "<li>データ出典は " + escapeHtml(ADAPTERS[candidate.source].label) + " です。" + escapeHtml(ADAPTERS[candidate.source].hint) + "</li>";
+    if (ADAPTERS[candidate.source].registrationNote) {
+      sourceNotesHtml += "<li>" + escapeHtml(ADAPTERS[candidate.source].registrationNote) + "</li>";
+    }
+    sourceNotes.innerHTML = sourceNotesHtml;
 
     var W = 1000, H = 720, CX = W / 2, CY = H / 2;
     var maxCount = 1;
@@ -546,6 +633,40 @@
       nodeEls.forEach(function (n) { n.el.style.opacity = keep.has(n.id) ? 1 : 0.22; });
     }
 
+    function closeNodePanel() { nodePanel.hidden = true; }
+    activeCloseNodePanel = function () { pinned = null; clearHighlight(); closeNodePanel(); };
+
+    async function openNodePanel(n) {
+      nodePanel.hidden = false;
+      nodePanelName.textContent = n.name;
+      nodePanelGroup.textContent = n.id === CENTER ? "（中心著者）" : "・" + (clusterLabelText[n.cluster] || "その他");
+      nodePanelHint.textContent = "";
+      var papersForNode = data.papers.filter(function (p) {
+        return p.authors.some(function (a) { return a.id === n.id; });
+      });
+      renderPaperList(nodePanelPapers, papersForNode);
+
+      nodePanelProfileBtn.disabled = false;
+      nodePanelProfileBtn.textContent = "プロフィールを探す ↗";
+      nodePanelProfileBtn.onclick = async function () {
+        nodePanelProfileBtn.disabled = true;
+        nodePanelProfileBtn.textContent = "検索中…";
+        try {
+          var result = await ADAPTERS[candidate.source].resolveProfileUrl(n, candidate);
+          if (!result) {
+            nodePanelHint.textContent = "研究者情報が見つかりませんでした。";
+          } else {
+            window.open(result.url, "_blank", "noopener");
+            nodePanelHint.textContent = result.ambiguous ? "同姓同名の候補が複数見つかりました。先頭の候補を開きました。" : "";
+          }
+        } catch (err) {
+          nodePanelHint.textContent = errMessage(err);
+        }
+        nodePanelProfileBtn.disabled = false;
+        nodePanelProfileBtn.textContent = "プロフィールを探す ↗";
+      };
+    }
+
     var tooltip = document.getElementById("tooltip");
     var graphWrap = document.getElementById("graphWrap");
     function showTooltip(n, evt) {
@@ -581,8 +702,8 @@
       ne.el.addEventListener("pointerdown", function (evt) { evt.stopPropagation(); draggingNode = ne; ne.el.setPointerCapture(evt.pointerId); });
       ne.el.addEventListener("click", function (evt) {
         evt.stopPropagation();
-        if (pinned === ne.id) { pinned = null; clearHighlight(); }
-        else { pinned = ne.id; applyHighlight(ne.id); }
+        if (pinned === ne.id) { pinned = null; clearHighlight(); closeNodePanel(); }
+        else { pinned = ne.id; applyHighlight(ne.id); openNodePanel(ne.node); }
       });
     });
 
@@ -603,7 +724,7 @@
       if (draggingNode) return;
       panState = { startX: evt.clientX, startY: evt.clientY, viewX: view.x, viewY: view.y };
       svg.classList.add("panning");
-      if (pinned) { pinned = null; clearHighlight(); }
+      if (pinned) { pinned = null; clearHighlight(); closeNodePanel(); }
     });
     svg.addEventListener("pointermove", function (evt) {
       if (!panState) return;
@@ -631,7 +752,7 @@
     document.getElementById("resetView").onclick = function () {
       view = { x: 0, y: 0, w: W, h: H };
       applyView();
-      pinned = null; clearHighlight(); hideTooltip();
+      pinned = null; clearHighlight(); hideTooltip(); closeNodePanel();
     };
     applyView();
 

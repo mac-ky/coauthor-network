@@ -170,6 +170,40 @@ h1 { font-size: clamp(22px, 4vw, 30px); line-height: 1.3; margin: 4px 0 0; text-
 .stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .stat .l { font-size: 11.5px; color: var(--muted); }
 
+.papers-card { padding: 4px 4px; }
+.papers-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--ink);
+  background: transparent; border: none; cursor: pointer; padding: 14px 16px;
+}
+.papers-toggle:hover { background: var(--border); border-radius: 8px; }
+.papers-toggle .chevron { color: var(--muted); transition: transform 0.15s ease; }
+.papers-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .papers-toggle .chevron { transition: none; } }
+
+.paper-list { list-style: none; margin: 0; padding: 0 16px 14px; display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.paper-list li { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; line-height: 1.5; }
+.paper-list li:last-child { border-bottom: none; }
+.paper-list a { color: var(--ink); font-weight: 500; text-decoration: none; }
+.paper-list a:hover { text-decoration: underline; }
+.paper-list .paper-meta { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+.paper-list .paper-nolink { color: var(--ink-2); font-weight: 500; }
+.paper-list .paper-empty { color: var(--muted); padding: 10px 0; }
+
+.node-panel { padding: 16px; }
+.node-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.node-panel-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+.node-panel-group { font-size: 12px; color: var(--muted); margin-left: 8px; }
+.node-panel-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.profile-btn {
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--surface);
+  background: var(--ink); border: none; border-radius: 7px; padding: 6px 12px; cursor: pointer;
+}
+.profile-btn:hover { opacity: 0.85; }
+.profile-btn:disabled { opacity: 0.5; cursor: default; }
+.node-panel-hint { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; }
+.node-panel .paper-list { padding: 10px 0 0; max-height: 260px; }
+
 .graph-card { padding: 4px; }
 .graph-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 10px; }
 .toolbar-right { display: flex; align-items: center; gap: 10px; }
