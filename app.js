@@ -42,17 +42,23 @@
       placeholder: "著者名を入力（例：Yuya Tabei）",
       async search(name) {
         var url = "https://api.semanticscholar.org/graph/v1/author/search?query=" + encodeURIComponent(name) +
-          "&fields=name,affiliations,paperCount,citationCount,hIndex";
+          "&fields=name,affiliations,paperCount,citationCount,hIndex,papers.title,papers.year";
         var data = await fetchJsonRetry(url);
         var items = data.data || [];
         items.sort(function (a, b) { return (b.paperCount || 0) - (a.paperCount || 0); });
         return items.map(function (a) {
+          var recentPapers = (a.papers || [])
+            .filter(function (p) { return p.title; })
+            .sort(function (p1, p2) { return (p2.year || 0) - (p1.year || 0); })
+            .slice(0, 2)
+            .map(function (p) { return { title: p.title, year: p.year || null }; });
           return {
             source: "s2",
             rawId: a.authorId,
             id: a.authorId,
             name: a.name,
             affiliation: (a.affiliations && a.affiliations.length) ? a.affiliations.join(", ") : "",
+            recentPapers: recentPapers,
             extra: { paperCount: a.paperCount || 0, citationCount: a.citationCount || 0, hIndex: a.hIndex || 0 }
           };
         });
@@ -464,9 +470,17 @@
           "<span><b>h" + c.extra.hIndex + "</b></span>" +
           "</div>";
       }
+      var papersHtml = "";
+      if (c.recentPapers && c.recentPapers.length) {
+        papersHtml = "<div class='cand-papers'><span class='cand-papers-label'>最近の論文：</span>" + c.recentPapers.map(function (p) {
+          var yr = p.year ? "（" + escapeHtml(String(p.year)) + "）" : "";
+          return "<div class='cand-paper-line'>" + escapeHtml(p.title) + yr + "</div>";
+        }).join("") + "</div>";
+      }
       btn.innerHTML =
-        "<div><div class='cand-name'>" + escapeHtml(c.name) + "</div>" +
-        "<div class='cand-aff'>" + escapeHtml(c.affiliation || "所属情報なし") + "</div></div>" +
+        "<div class='cand-main'><div class='cand-name'>" + escapeHtml(c.name) + "</div>" +
+        "<div class='cand-aff'>" + escapeHtml(c.affiliation || "所属情報なし") + "</div>" +
+        papersHtml + "</div>" +
         statsHtml;
       btn.addEventListener("click", function () { selectCandidate(c); });
       candidatesList.appendChild(btn);
