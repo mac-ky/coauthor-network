@@ -66,22 +66,12 @@ body { background: var(--page); color: var(--ink); font-family: var(--font-sans)
 .eyebrow { font-size: 12px; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
 h1 { font-size: clamp(22px, 4vw, 30px); line-height: 1.3; margin: 4px 0 0; text-wrap: balance; }
 .hero-sub { color: var(--ink-2); font-size: 14px; line-height: 1.7; margin: 10px 0 0; max-width: 70ch; }
+.hero-sub a { color: var(--ink); }
+.hero-caveat { color: var(--muted); font-size: 12.5px; line-height: 1.7; margin: 10px 0 0; max-width: 70ch; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
 
 .search-card { padding: 18px 20px; }
-
-.source-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
-.source-btn {
-  flex: 1; text-align: left; font-family: inherit; cursor: pointer;
-  padding: 10px 14px; border-radius: 9px; border: 1px solid var(--border);
-  background: var(--page); color: var(--ink-2);
-  display: flex; flex-direction: column; gap: 2px;
-}
-.source-btn .source-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
-.source-btn .source-desc { font-size: 11.5px; color: var(--muted); }
-.source-btn:hover { border-color: var(--border-strong); }
-.source-btn.is-active { border-color: var(--ink); background: var(--surface); box-shadow: inset 0 0 0 1px var(--ink); }
 
 .search-row { display: flex; gap: 10px; }
 #searchInput {

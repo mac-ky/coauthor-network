@@ -30,74 +30,12 @@
   }
 
   // ---------------------------------------------------------------
-  // Data source adapters — each returns a unified shape:
+  // Data source adapter (Semantic Scholar) — returns a unified shape:
   //   search(name) -> [{ id, name, affiliation, extra }]
   //   fetchPapers(candidate) -> { papers: [{authors:[{id,name}, ...]}], cappedPapers }
   //   centerId(candidate) -> id used as the graph's center node id
   // ---------------------------------------------------------------
   var ADAPTERS = {
-    cinii: {
-      label: "CiNii Research",
-      hint: "日本語の学会発表・紀要論文にも対応しています。海外の国際会議論文などは収録が薄い場合があります。共著者ごとの一意なIDはないため、氏名の表記に基づいて集計します。",
-      registrationNote: "CiNii Research の検索窓は「研究者」として登録されている人だけがヒットします（KAKEN研究者番号などが必要で、論文に名前が載っているだけでは登録されません）。そのため、共著者としてネットワーク図には表示されても、その人自身の名前では検索してもヒットしないことがあります。",
-      placeholder: "著者名を入力（例：田部井優也）",
-      async search(name) {
-        var url = "https://cir.nii.ac.jp/opensearch/v2/researchers?name=" + encodeURIComponent(name) + "&format=json&count=20";
-        var data = await fetchJsonRetry(url);
-        var items = data.items || [];
-        return items.map(function (it) {
-          var idUrl = (it["@id"] || "");
-          var crid = idUrl.split("/").filter(Boolean).pop();
-          return {
-            source: "cinii",
-            rawId: crid,
-            id: it.title,
-            name: it.title,
-            affiliation: it.description || "",
-            extra: null
-          };
-        });
-      },
-      centerId: function (candidate) { return candidate.name; },
-      async fetchPapers(candidate) {
-        var papers = [];
-        var start = 1, count = 200, total = Infinity;
-        while (start <= total && papers.length < MAX_PAPERS) {
-          var url = "https://cir.nii.ac.jp/opensearch/articles?researcherId=" + encodeURIComponent(candidate.rawId) +
-            "&format=json&count=" + count + "&start=" + start;
-          var data = await fetchJsonRetry(url);
-          total = data["opensearch:totalResults"] || 0;
-          var items = data.items || [];
-          if (items.length === 0) break;
-          items.forEach(function (it) {
-            var creators = it["dc:creator"];
-            var names = Array.isArray(creators) ? creators : (creators ? [creators] : []);
-            var dateStr = it["prism:publicationDate"] || "";
-            papers.push({
-              authors: names.map(function (n) { return { id: n, name: n }; }),
-              title: it.title || "(タイトル不明)",
-              year: dateStr.slice(0, 4) || null,
-              url: it.link && it.link["@id"] ? it.link["@id"] : null
-            });
-          });
-          start += count;
-        }
-        return { papers: papers, cappedPapers: papers.length >= MAX_PAPERS || papers.length < total };
-      },
-      async resolveProfileUrl(node, candidate) {
-        if (node.id === candidate.name) {
-          return { url: "https://cir.nii.ac.jp/crid/" + candidate.rawId, ambiguous: false };
-        }
-        var url = "https://cir.nii.ac.jp/opensearch/v2/researchers?name=" + encodeURIComponent(node.name) + "&format=json&count=5";
-        var data = await fetchJsonRetry(url);
-        var items = data.items || [];
-        if (items.length === 0) return null;
-        var idUrl = items[0]["@id"] || "";
-        var crid = idUrl.split("/").filter(Boolean).pop();
-        return { url: "https://cir.nii.ac.jp/crid/" + crid, ambiguous: items.length > 1, matchCount: items.length };
-      }
-    },
-
     s2: {
       label: "Semantic Scholar",
       hint: "英語論文・国際会議中心の無料学術データベースです。日本語のみの学会発表・紀要はカバーされないことがあります。",
@@ -284,9 +222,8 @@
   // ---------------------------------------------------------------
   // UI wiring
   // ---------------------------------------------------------------
-  var currentSource = "cinii";
+  var currentSource = "s2";
 
-  var sourceToggle = document.getElementById("sourceToggle");
   var searchForm = document.getElementById("searchForm");
   var searchInput = document.getElementById("searchInput");
   var searchBtn = document.getElementById("searchBtn");
@@ -343,18 +280,7 @@
     var adapter = ADAPTERS[currentSource];
     searchInput.placeholder = adapter.placeholder;
     searchHint.textContent = adapter.hint;
-    Array.prototype.forEach.call(sourceToggle.querySelectorAll(".source-btn"), function (btn) {
-      var active = btn.dataset.source === currentSource;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-checked", active ? "true" : "false");
-    });
   }
-  sourceToggle.addEventListener("click", function (evt) {
-    var btn = evt.target.closest(".source-btn");
-    if (!btn) return;
-    currentSource = btn.dataset.source;
-    applySourceUI();
-  });
   applySourceUI();
 
   function setStatus(msg, opts) {

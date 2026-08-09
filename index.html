@@ -13,25 +13,19 @@
     <div class="eyebrow">CO-AUTHOR NETWORK EXPLORER</div>
     <h1>共著者ネットワーク検索</h1>
     <p class="hero-sub">
-      著者名を入力すると学術データベースから論文情報を取得し、共著関係をネットワーク図として可視化します。
+      著者名を入力すると <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a> から論文情報を取得し、共著関係をネットワーク図として可視化します。
       同姓同名の著者が複数見つかった場合は候補から選択できます。
-      このページはサーバーを持たない静的サイトで、入力内容はすべてお使いのブラウザから各データベースのAPIへ直接送信されます。
+      このページはサーバーを持たない静的サイトで、入力内容はすべてお使いのブラウザからSemantic ScholarのAPIへ直接送信されます。
+    </p>
+    <p class="hero-caveat">
+      Semantic Scholar は英語論文・国際会議中心のデータベースのため、日本語のみの学会発表・紀要論文は収録されていないことがあります。
+      検索後に表示される「取得した論文一覧」で、実際に何がヒットしたかを確認できます。
     </p>
   </header>
 
   <section class="card search-card">
-    <div class="source-toggle" id="sourceToggle" role="radiogroup" aria-label="検索データソース">
-      <button type="button" class="source-btn is-active" data-source="cinii" role="radio" aria-checked="true">
-        <span class="source-name">CiNii Research</span>
-        <span class="source-desc">日本語の学会発表・紀要中心</span>
-      </button>
-      <button type="button" class="source-btn" data-source="s2" role="radio" aria-checked="false">
-        <span class="source-name">Semantic Scholar</span>
-        <span class="source-desc">英語の国際会議・ジャーナル中心</span>
-      </button>
-    </div>
     <form id="searchForm" class="search-row" autocomplete="off">
-      <input id="searchInput" type="text" placeholder="著者名を入力（例：田部井優也）" required>
+      <input id="searchInput" type="text" placeholder="著者名を入力（例：Yuya Tabei）" required>
       <button type="submit" id="searchBtn">検索</button>
     </form>
     <p class="search-hint" id="searchHint"></p>
@@ -150,15 +144,14 @@
       <ul>
         <li>グループ分け（色分け）は、共著関係のネットワーク構造から自動検出したコミュニティです。所属研究室等の人手による分類ではありません。</li>
         <li>共著者数が多い場合、図の見やすさを保つため中心著者との共著論文数が多い上位のみを表示しています。</li>
-        <li>本ページはサーバーを持たない静的サイトです。すべての通信はお使いのブラウザから各データベースのAPIへ直接送信されます。</li>
+        <li>本ページはサーバーを持たない静的サイトです。すべての通信はお使いのブラウザからSemantic ScholarのAPIへ直接送信されます。</li>
       </ul>
     </section>
   </section>
 
   <footer>
     <p>
-      データ出典：<a href="https://cir.nii.ac.jp/" target="_blank" rel="noopener">CiNii Research</a>
-      ・ <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
+      データ出典：<a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
       ・ <a href="https://github.com/mac-ky/coauthor-network" target="_blank" rel="noopener" id="repoLink">ソースコード</a>
     </p>
     <p>本ページは Claude Code とのバイブコーディングで作成しました。</p>
