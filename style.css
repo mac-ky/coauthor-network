@@ -75,12 +75,11 @@ h1 { font-size: clamp(22px, 4vw, 30px); line-height: 1.3; margin: 4px 0 0; text-
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  max-width: 70ch;
 }
 .ai-credit a { color: var(--ink); font-weight: 600; }
-.hero-sub { color: var(--ink-2); font-size: 14px; line-height: 1.7; margin: 10px 0 0; max-width: 70ch; }
+.hero-sub { color: var(--ink-2); font-size: 14px; line-height: 1.7; margin: 10px 0 0; }
 .hero-sub a { color: var(--ink); }
-.hero-caveat { color: var(--muted); font-size: 12.5px; line-height: 1.7; margin: 10px 0 0; max-width: 70ch; }
+.hero-caveat { color: var(--muted); font-size: 12.5px; line-height: 1.7; margin: 10px 0 0; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
 
@@ -115,7 +114,7 @@ h1 { font-size: clamp(22px, 4vw, 30px); line-height: 1.3; margin: 4px 0 0; text-
 
 .explainer-card { padding: 18px 20px; }
 .explainer-card h2 { font-size: 15px; margin: 0 0 8px; }
-.explainer-text { font-size: 12.5px; line-height: 1.8; color: var(--ink-2); margin: 0 0 14px; max-width: 72ch; }
+.explainer-text { font-size: 12.5px; line-height: 1.8; color: var(--ink-2); margin: 0 0 14px; }
 .explainer-text b { color: var(--ink); }
 .explainer-figure { margin: 0; }
 .explainer-svg { width: 100%; max-width: 520px; height: auto; display: block; margin: 0 auto; }
