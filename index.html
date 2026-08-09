@@ -97,7 +97,9 @@
       <div class="graph-toolbar">
         <div class="legend" id="legend"></div>
         <div class="toolbar-right">
-          <span class="hint">ドラッグで移動／クリックで共著関係を強調／ホイールで拡大縮小</span>
+          <span class="hint">ドラッグで移動／ノードやつながりをクリックで詳細・除外／ホイールで拡大縮小</span>
+          <span class="excluded-count" id="excludedCount"></span>
+          <button class="reset-btn" id="resetExclusions" hidden>除外をリセット</button>
           <button class="reset-btn" id="resetView">表示をリセット</button>
         </div>
       </div>
@@ -119,11 +121,25 @@
         </div>
         <div class="node-panel-actions">
           <button type="button" class="profile-btn" id="nodePanelProfileBtn">プロフィールを探す ↗</button>
+          <button type="button" class="exclude-btn" id="nodePanelExcludeBtn">－ この人を除外</button>
           <button type="button" class="ghost-btn" id="nodePanelClose">閉じる</button>
         </div>
       </div>
       <p class="node-panel-hint" id="nodePanelHint"></p>
       <ul class="paper-list" id="nodePanelPapers"></ul>
+    </section>
+
+    <section class="card node-panel" id="edgePanel" hidden>
+      <div class="node-panel-head">
+        <div>
+          <span class="node-panel-name" id="edgePanelNames"></span>
+        </div>
+        <div class="node-panel-actions">
+          <button type="button" class="exclude-btn" id="edgePanelExcludeBtn">－ このつながりを除外</button>
+          <button type="button" class="ghost-btn" id="edgePanelClose">閉じる</button>
+        </div>
+      </div>
+      <ul class="paper-list" id="edgePanelPapers"></ul>
     </section>
 
     <section class="card table-card">
@@ -144,6 +160,7 @@
       <ul>
         <li>グループ分け（色分け）は、共著関係のネットワーク構造から自動検出したコミュニティです。所属研究室等の人手による分類ではありません。</li>
         <li>共著者数が多い場合、図の見やすさを保つため中心著者との共著論文数が多い上位のみを表示しています。</li>
+        <li>著者の自動識別が誤っている場合（同姓同名の別人の論文が混ざっているなど）は、論文一覧の「×」ボタンでその論文を除外できます。ノードやつながりをクリックすると、その人・その2人の共著論文だけを絞り込んで確認でき、「－」ボタンでノードやつながりごと除外することもできます。除外は表示上の操作で、ブラウザを閉じると元に戻ります。</li>
         <li>本ページはサーバーを持たない静的サイトです。すべての通信はお使いのブラウザからSemantic ScholarのAPIへ直接送信されます。</li>
       </ul>
     </section>

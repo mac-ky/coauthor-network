@@ -63,16 +63,19 @@
         var offset = 0, limit = 1000;
         while (papers.length < MAX_PAPERS) {
           var url = "https://api.semanticscholar.org/graph/v1/author/" + encodeURIComponent(candidate.id) +
-            "/papers?fields=title,year,authors&limit=" + limit + "&offset=" + offset;
+            "/papers?fields=title,year,authors,s2FieldsOfStudy&limit=" + limit + "&offset=" + offset;
           var data = await fetchJsonRetry(url);
           var items = data.data || [];
           items.forEach(function (p) {
             var authors = (p.authors || []).filter(function (a) { return a.authorId; });
+            var fields = Array.from(new Set((p.s2FieldsOfStudy || []).map(function (f) { return f.category; }).filter(Boolean)));
             papers.push({
+              id: p.paperId || null,
               authors: authors.map(function (a) { return { id: a.authorId, name: a.name }; }),
               title: p.title || "(タイトル不明)",
               year: p.year || null,
-              url: p.paperId ? "https://www.semanticscholar.org/paper/" + p.paperId : null
+              url: p.paperId ? "https://www.semanticscholar.org/paper/" + p.paperId : null,
+              fields: fields
             });
           });
           if (items.length < limit || !data.next) break;
@@ -147,7 +150,7 @@
       var ids = (paper.authors || []).map(function (a) { return a.id; }).filter(Boolean);
       if (ids.indexOf(centerId) === -1) return;
       validPaperCount++;
-      validPapers.push({ authors: paper.authors, title: paper.title, year: paper.year, url: paper.url });
+      validPapers.push({ id: paper.id, authors: paper.authors, title: paper.title, year: paper.year, url: paper.url, fields: paper.fields || [] });
       paper.authors.forEach(function (a) {
         if (!a.id) return;
         if (!nameVotes.has(a.id)) nameVotes.set(a.id, new Map());
@@ -254,8 +257,81 @@
   var nodePanelClose = document.getElementById("nodePanelClose");
   var nodePanelHint = document.getElementById("nodePanelHint");
   var nodePanelPapers = document.getElementById("nodePanelPapers");
+  var nodePanelExcludeBtn = document.getElementById("nodePanelExcludeBtn");
 
-  function renderPaperList(container, papers) {
+  var edgePanel = document.getElementById("edgePanel");
+  var edgePanelNames = document.getElementById("edgePanelNames");
+  var edgePanelExcludeBtn = document.getElementById("edgePanelExcludeBtn");
+  var edgePanelClose = document.getElementById("edgePanelClose");
+  var edgePanelPapers = document.getElementById("edgePanelPapers");
+
+  var resetExclusionsBtn = document.getElementById("resetExclusions");
+  var excludedCountLabel = document.getElementById("excludedCount");
+
+  // ---- manual curation state (session-only; not persisted) ----
+  var rawPapers = [];
+  var currentCandidate = null;
+  var excludedPaperIds = new Set();
+  var excludedAuthorIds = new Set();
+  var excludedEdgeKeys = new Set();
+  var lastPositions = {};
+
+  function edgeKey(a, b) { return [a, b].sort().join("␟"); }
+
+  function computeFilteredGraph() {
+    var filtered = rawPapers
+      .filter(function (p) { return !p.id || !excludedPaperIds.has(p.id); })
+      .map(function (p) {
+        return {
+          id: p.id, title: p.title, year: p.year, url: p.url, fields: p.fields,
+          authors: p.authors.filter(function (a) { return !excludedAuthorIds.has(a.id); })
+        };
+      });
+    var centerId = ADAPTERS[currentCandidate.source].centerId(currentCandidate);
+    var graph = buildGraph(centerId, currentCandidate.name, filtered);
+    graph.edges = graph.edges.filter(function (e) { return !excludedEdgeKeys.has(edgeKey(e.a, e.b)); });
+    return graph;
+  }
+
+  function updateExcludedCount() {
+    var n = excludedPaperIds.size + excludedAuthorIds.size + excludedEdgeKeys.size;
+    if (n === 0) {
+      excludedCountLabel.textContent = "";
+      resetExclusionsBtn.hidden = true;
+    } else {
+      excludedCountLabel.textContent = n + "件を除外中";
+      resetExclusionsBtn.hidden = false;
+    }
+  }
+
+  function rerenderAfterEdit() {
+    updateExcludedCount();
+    var graph = computeFilteredGraph();
+    papersToggleLabel.textContent = "取得した論文一覧を見る（" + graph.papers.length + "件）";
+    renderPaperList(allPapersList, graph.papers, { excludable: true, onExclude: excludePaper });
+    nodePanel.hidden = true;
+    edgePanel.hidden = true;
+    renderNetwork(currentCandidate, graph, { seedPositions: lastPositions, skipSimulation: true });
+  }
+
+  function excludePaper(id) { excludedPaperIds.add(id); rerenderAfterEdit(); }
+  function excludeAuthor(id) { excludedAuthorIds.add(id); rerenderAfterEdit(); }
+  function excludeEdgePair(a, b) { excludedEdgeKeys.add(edgeKey(a, b)); rerenderAfterEdit(); }
+
+  resetExclusionsBtn.addEventListener("click", function () {
+    excludedPaperIds.clear(); excludedAuthorIds.clear(); excludedEdgeKeys.clear();
+    updateExcludedCount();
+    var graph = computeFilteredGraph();
+    papersToggleLabel.textContent = "取得した論文一覧を見る（" + graph.papers.length + "件）";
+    renderPaperList(allPapersList, graph.papers, { excludable: true, onExclude: excludePaper });
+    nodePanel.hidden = true;
+    edgePanel.hidden = true;
+    lastPositions = {};
+    renderNetwork(currentCandidate, graph, { seedPositions: {}, skipSimulation: false });
+  });
+
+  function renderPaperList(container, papers, opts) {
+    opts = opts || {};
     container.innerHTML = "";
     if (papers.length === 0) {
       var li0 = document.createElement("li");
@@ -267,10 +343,29 @@
     papers.forEach(function (p) {
       var li = document.createElement("li");
       var yearText = p.year ? "（" + escapeHtml(String(p.year)) + "）" : "";
+      var row = document.createElement("div");
+      row.className = "paper-row";
       if (p.url) {
-        li.innerHTML = "<a href='" + p.url + "' target='_blank' rel='noopener'>" + escapeHtml(p.title) + "</a><span class='paper-meta'>" + yearText + "</span>";
+        row.innerHTML = "<a href='" + p.url + "' target='_blank' rel='noopener'>" + escapeHtml(p.title) + "</a><span class='paper-meta'>" + yearText + "</span>";
       } else {
-        li.innerHTML = "<span class='paper-nolink'>" + escapeHtml(p.title) + "</span><span class='paper-meta'>" + yearText + "</span>";
+        row.innerHTML = "<span class='paper-nolink'>" + escapeHtml(p.title) + "</span><span class='paper-meta'>" + yearText + "</span>";
+      }
+      if (opts.excludable && p.id) {
+        var xBtn = document.createElement("button");
+        xBtn.type = "button";
+        xBtn.className = "paper-exclude-btn";
+        xBtn.title = "この論文を除外";
+        xBtn.setAttribute("aria-label", "この論文を除外");
+        xBtn.textContent = "×";
+        xBtn.addEventListener("click", function () { opts.onExclude(p.id); });
+        row.appendChild(xBtn);
+      }
+      li.appendChild(row);
+      if (p.fields && p.fields.length) {
+        var fieldsEl = document.createElement("div");
+        fieldsEl.className = "paper-fields";
+        fieldsEl.textContent = p.fields.join(" ・ ");
+        li.appendChild(fieldsEl);
       }
       container.appendChild(li);
     });
@@ -307,6 +402,9 @@
   });
   var activeCloseNodePanel = null;
   nodePanelClose.addEventListener("click", function () {
+    if (activeCloseNodePanel) activeCloseNodePanel();
+  });
+  edgePanelClose.addEventListener("click", function () {
     if (activeCloseNodePanel) activeCloseNodePanel();
   });
 
@@ -388,13 +486,22 @@
       graph.meta.cappedPapers = result.cappedPapers;
       hideStatus();
 
+      rawPapers = result.papers;
+      currentCandidate = candidate;
+      excludedPaperIds = new Set();
+      excludedAuthorIds = new Set();
+      excludedEdgeKeys = new Set();
+      lastPositions = {};
+      updateExcludedCount();
+
       papersToggle.setAttribute("aria-expanded", "false");
       allPapersList.hidden = true;
       papersToggleLabel.textContent = "取得した論文一覧を見る（" + graph.papers.length + "件）";
-      renderPaperList(allPapersList, graph.papers);
+      renderPaperList(allPapersList, graph.papers, { excludable: true, onExclude: excludePaper });
       nodePanel.hidden = true;
+      edgePanel.hidden = true;
 
-      renderNetwork(candidate, graph);
+      renderNetwork(candidate, graph, { seedPositions: {}, skipSimulation: false });
     } catch (err) {
       setStatus(errMessage(err), { error: true });
     }
@@ -403,7 +510,10 @@
   // ---------------------------------------------------------------
   // Graph rendering (force-directed layout, drag / pan / zoom / hover)
   // ---------------------------------------------------------------
-  function renderNetwork(candidate, data) {
+  function renderNetwork(candidate, data, renderOpts) {
+    renderOpts = renderOpts || {};
+    var seedPositions = renderOpts.seedPositions || {};
+    var skipSimulation = !!renderOpts.skipSimulation;
     var nodesData = data.nodes || [];
     var edgesData = data.edges || [];
     var meta = data.meta || {};
@@ -428,6 +538,13 @@
     function opacityFor(w) { return 0.28 + 0.55 * (w / maxWeight); }
 
     var nodes = nodesData.map(function (n, i) {
+      var seed = seedPositions[n.id];
+      if (seed) {
+        return {
+          id: n.id, name: n.name, cluster: n.id === CENTER ? "center" : n.cluster,
+          count: n.count, r: radiusFor(n), x: seed.x, y: seed.y, vx: 0, vy: 0
+        };
+      }
       var angle = (i / nodesData.length) * Math.PI * 2;
       var rr = n.id === CENTER ? 0 : 220 + (Math.random() - 0.5) * 60;
       return {
@@ -444,7 +561,7 @@
     var K_REP = 26000, K_SPRING = 0.02, K_CENTER = 0.0012, DAMPING = 0.82;
     function idealLen(w) { return 150 / (1 + w * 0.4); }
 
-    var iterations = nodes.length > 60 ? 320 : 480;
+    var iterations = skipSimulation ? 0 : (nodes.length > 60 ? 320 : 480);
     for (var iter = 0; iter < iterations; iter++) {
       for (var i = 0; i < nodes.length; i++) {
         for (var j = i + 1; j < nodes.length; j++) {
@@ -491,6 +608,7 @@
       var m = n.r + 16;
       n.x = Math.min(W - m, Math.max(m, n.x));
       n.y = Math.min(H - m, Math.max(m, n.y));
+      lastPositions[n.id] = { x: n.x, y: n.y };
     });
 
     var svgNS = "http://www.w3.org/2000/svg";
@@ -517,7 +635,14 @@
       line.setAttribute("stroke-width", widthFor(e.w));
       line.setAttribute("stroke-opacity", opacityFor(e.w));
       edgesLayer.appendChild(line);
-      return { el: line, a: e.a, b: e.b, baseOpacity: opacityFor(e.w) };
+
+      var hit = document.createElementNS(svgNS, "line");
+      hit.setAttribute("class", "edge-hit");
+      hit.setAttribute("x1", n1.x); hit.setAttribute("y1", n1.y);
+      hit.setAttribute("x2", n2.x); hit.setAttribute("y2", n2.y);
+      edgesLayer.appendChild(hit);
+
+      return { el: line, hitEl: hit, a: e.a, b: e.b, w: e.w, baseOpacity: opacityFor(e.w) };
     });
 
     var nodeEls = nodes.map(function (n) {
@@ -544,33 +669,54 @@
     nodes.forEach(function (n) { neighbors[n.id] = new Set(); });
     edges.forEach(function (e) { neighbors[e.a].add(e.b); neighbors[e.b].add(e.a); });
 
-    var pinned = null;
+    var pinned = null; // { type: "node", id } | { type: "edge", a, b } | null
+
     function clearHighlight() {
       edgeEls.forEach(function (e) { e.el.setAttribute("stroke-opacity", e.baseOpacity); e.el.setAttribute("stroke", "var(--muted)"); });
       nodeEls.forEach(function (n) { n.el.style.opacity = 1; });
     }
-    function applyHighlight(id) {
-      var keep = neighbors[id]; keep.add(id);
+    function applyHighlightSet(keepNodeIds, isActiveEdge) {
       edgeEls.forEach(function (e) {
-        var active = e.a === id || e.b === id;
+        var active = isActiveEdge(e);
         e.el.setAttribute("stroke-opacity", active ? Math.min(1, e.baseOpacity + 0.35) : 0.05);
         e.el.setAttribute("stroke", active ? "var(--ink)" : "var(--muted)");
       });
-      nodeEls.forEach(function (n) { n.el.style.opacity = keep.has(n.id) ? 1 : 0.22; });
+      nodeEls.forEach(function (n) { n.el.style.opacity = keepNodeIds.has(n.id) ? 1 : 0.22; });
+    }
+    function applyHighlightForNode(id) {
+      var keep = new Set(neighbors[id]); keep.add(id);
+      applyHighlightSet(keep, function (e) { return e.a === id || e.b === id; });
+    }
+    function applyHighlightForEdge(a, b) {
+      applyHighlightSet(new Set([a, b]), function (e) {
+        return (e.a === a && e.b === b) || (e.a === b && e.b === a);
+      });
     }
 
     function closeNodePanel() { nodePanel.hidden = true; }
-    activeCloseNodePanel = function () { pinned = null; clearHighlight(); closeNodePanel(); };
+    function closeEdgePanel() { edgePanel.hidden = true; }
+    function closeAllPanels() { closeNodePanel(); closeEdgePanel(); }
+    activeCloseNodePanel = function () { pinned = null; clearHighlight(); closeAllPanels(); };
+
+    function papersForAuthor(id) {
+      return data.papers.filter(function (p) { return p.authors.some(function (a) { return a.id === id; }); });
+    }
+    function papersForPair(a, b) {
+      return data.papers.filter(function (p) {
+        var ids = p.authors.map(function (x) { return x.id; });
+        return ids.indexOf(a) !== -1 && ids.indexOf(b) !== -1;
+      });
+    }
 
     async function openNodePanel(n) {
       nodePanel.hidden = false;
       nodePanelName.textContent = n.name;
       nodePanelGroup.textContent = n.id === CENTER ? "（中心著者）" : "・" + (clusterLabelText[n.cluster] || "その他");
       nodePanelHint.textContent = "";
-      var papersForNode = data.papers.filter(function (p) {
-        return p.authors.some(function (a) { return a.id === n.id; });
-      });
-      renderPaperList(nodePanelPapers, papersForNode);
+      renderPaperList(nodePanelPapers, papersForAuthor(n.id), { excludable: true, onExclude: excludePaper });
+
+      nodePanelExcludeBtn.hidden = n.id === CENTER;
+      nodePanelExcludeBtn.onclick = function () { excludeAuthor(n.id); };
 
       nodePanelProfileBtn.disabled = false;
       nodePanelProfileBtn.textContent = "プロフィールを探す ↗";
@@ -591,6 +737,14 @@
         nodePanelProfileBtn.disabled = false;
         nodePanelProfileBtn.textContent = "プロフィールを探す ↗";
       };
+    }
+
+    function openEdgePanel(e) {
+      edgePanel.hidden = false;
+      var n1 = nodeById[e.a], n2 = nodeById[e.b];
+      edgePanelNames.textContent = n1.name + " ↔ " + n2.name;
+      edgePanelExcludeBtn.onclick = function () { excludeEdgePair(e.a, e.b); };
+      renderPaperList(edgePanelPapers, papersForPair(e.a, e.b), { excludable: true, onExclude: excludePaper });
     }
 
     var tooltip = document.getElementById("tooltip");
@@ -622,14 +776,24 @@
     var draggingNode = null, panState = null;
 
     nodeEls.forEach(function (ne) {
-      ne.el.addEventListener("pointerenter", function (evt) { if (!pinned) applyHighlight(ne.id); showTooltip(ne.node, evt); });
+      ne.el.addEventListener("pointerenter", function (evt) { if (!pinned) applyHighlightForNode(ne.id); showTooltip(ne.node, evt); });
       ne.el.addEventListener("pointermove", function (evt) { showTooltip(ne.node, evt); });
       ne.el.addEventListener("pointerleave", function () { if (!pinned) clearHighlight(); hideTooltip(); });
       ne.el.addEventListener("pointerdown", function (evt) { evt.stopPropagation(); draggingNode = ne; ne.el.setPointerCapture(evt.pointerId); });
       ne.el.addEventListener("click", function (evt) {
         evt.stopPropagation();
-        if (pinned === ne.id) { pinned = null; clearHighlight(); closeNodePanel(); }
-        else { pinned = ne.id; applyHighlight(ne.id); openNodePanel(ne.node); }
+        if (pinned && pinned.type === "node" && pinned.id === ne.id) { pinned = null; clearHighlight(); closeAllPanels(); }
+        else { pinned = { type: "node", id: ne.id }; applyHighlightForNode(ne.id); closeEdgePanel(); openNodePanel(ne.node); }
+      });
+    });
+
+    edgeEls.forEach(function (ee) {
+      ee.hitEl.addEventListener("pointerenter", function () { if (!pinned) applyHighlightForEdge(ee.a, ee.b); });
+      ee.hitEl.addEventListener("pointerleave", function () { if (!pinned) clearHighlight(); });
+      ee.hitEl.addEventListener("click", function (evt) {
+        evt.stopPropagation();
+        if (pinned && pinned.type === "edge" && pinned.a === ee.a && pinned.b === ee.b) { pinned = null; clearHighlight(); closeAllPanels(); }
+        else { pinned = { type: "edge", a: ee.a, b: ee.b }; applyHighlightForEdge(ee.a, ee.b); closeNodePanel(); openEdgePanel(ee); }
       });
     });
 
@@ -638,10 +802,16 @@
       var p = svgPoint(evt);
       var n = draggingNode.node;
       n.x = p.x; n.y = p.y;
+      lastPositions[n.id] = { x: n.x, y: n.y };
       draggingNode.el.setAttribute("transform", "translate(" + n.x + "," + n.y + ")");
       edgeEls.forEach(function (e) {
-        if (e.a === n.id) { e.el.setAttribute("x1", n.x); e.el.setAttribute("y1", n.y); }
-        else if (e.b === n.id) { e.el.setAttribute("x2", n.x); e.el.setAttribute("y2", n.y); }
+        if (e.a === n.id) {
+          e.el.setAttribute("x1", n.x); e.el.setAttribute("y1", n.y);
+          e.hitEl.setAttribute("x1", n.x); e.hitEl.setAttribute("y1", n.y);
+        } else if (e.b === n.id) {
+          e.el.setAttribute("x2", n.x); e.el.setAttribute("y2", n.y);
+          e.hitEl.setAttribute("x2", n.x); e.hitEl.setAttribute("y2", n.y);
+        }
       });
     });
     window.addEventListener("pointerup", function () { draggingNode = null; });
@@ -650,7 +820,7 @@
       if (draggingNode) return;
       panState = { startX: evt.clientX, startY: evt.clientY, viewX: view.x, viewY: view.y };
       svg.classList.add("panning");
-      if (pinned) { pinned = null; clearHighlight(); closeNodePanel(); }
+      if (pinned) { pinned = null; clearHighlight(); closeAllPanels(); }
     });
     svg.addEventListener("pointermove", function (evt) {
       if (!panState) return;
@@ -678,7 +848,7 @@
     document.getElementById("resetView").onclick = function () {
       view = { x: 0, y: 0, w: W, h: H };
       applyView();
-      pinned = null; clearHighlight(); hideTooltip(); closeNodePanel();
+      pinned = null; clearHighlight(); hideTooltip(); closeAllPanels();
     };
     applyView();
 
